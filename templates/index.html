@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>B站视频下载工具</title>
+    <style>
+        /* ... 原有样式保持不变 ... */
+        .progress-container {
+            margin-top: 20px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            padding: 15px;
+            display: none; /* 默认隐藏 */
+        }
+        .progress-bar {
+            height: 20px;
+            background: #00a1d6;
+            width: 0%;
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+        .progress-text {
+            margin-top: 10px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎬 B站视频下载工具</h1>
+        <p>输入视频链接，获取MP4/MP3及字幕文件</p>
+    </div>
+
+    <div class="form-box">
+        <form onsubmit="startDownload(event)">
+            <input type="text" name="video_url" placeholder="请输入B站视频链接（示例：https://www.bilibili.com/video/BV1xx411x7xx）" required>
+            <button type="submit" class="submit-btn">开始处理</button>
+        </form>
+
+        <!-- 新增进度显示 -->
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-bar" id="progressBar"></div>
+            <div class="progress-text" id="progressText">初始化下载任务...</div>
+        </div>
+    </div>
+
+    <script>
+        const source = new EventSource("/progress");
+
+        function startDownload(e) {
+            e.preventDefault();
+            document.querySelector('.submit-btn').disabled = true;
+            document.getElementById('progressContainer').style.display = 'block';
+            const formData = new FormData(e.target);
+
+            fetch('/download', {
+                method: 'POST',
+                body: formData
+            }).then(response => {
+                if (!response.ok) throw new Error('下载失败');
+            }).catch(error => {
+                updateProgress('发生错误: ' + error.message, '100%', '#ff4d4d');
+            });
+        }
+
+        // 实时更新进度
+        source.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+
+            if (data.error) {
+                progressText.textContent = '错误: ' + data.error;
+                progressBar.style.backgroundColor = '#ff4d4d';
+                return;
+            }
+
+            progressBar.style.width = data.percent;
+            progressText.textContent = `${data.percent} 完成 - ${data.speed} - 剩余时间: ${data.eta}`;
+        };
+
+        function updateProgress(text, width, color) {
+            document.getElementById('progressText').textContent = text;
+            document.getElementById('progressBar').style.width = width;
+            if (color) {
+                document.getElementById('progressBar').style.backgroundColor = color;
+            }
+        }
+    </script>
+</body>
+</html>
